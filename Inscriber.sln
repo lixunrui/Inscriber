@@ -3,6 +3,8 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Recorder", "Recorder\Recorder.csproj", "{524C2D08-D511-4A1B-9C43-B34A56DC8E4D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LogTester", "LogTester\LogTester.csproj", "{31238F39-4330-46D3-8C83-4F39D0ED35E1}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -13,6 +15,10 @@ Global
 		{524C2D08-D511-4A1B-9C43-B34A56DC8E4D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{524C2D08-D511-4A1B-9C43-B34A56DC8E4D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{524C2D08-D511-4A1B-9C43-B34A56DC8E4D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{31238F39-4330-46D3-8C83-4F39D0ED35E1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{31238F39-4330-46D3-8C83-4F39D0ED35E1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{31238F39-4330-46D3-8C83-4F39D0ED35E1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{31238F39-4330-46D3-8C83-4F39D0ED35E1}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
