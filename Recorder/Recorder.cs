@@ -234,7 +234,9 @@ namespace LXR.Recorder
                 {
                     try
                     {
+                        locker.WaitOne();
                         File.Delete(kv.Value);
+                        locker.ReleaseMutex();
                     }
                     catch (System.Exception ex)
                     {
@@ -249,7 +251,9 @@ namespace LXR.Recorder
                 {
                     try
                     {
-                        File.Delete(sortedFileListByDate.Values[index]);	
+                        locker.WaitOne();
+                        File.Delete(sortedFileListByDate.Values[index]);
+                        locker.ReleaseMutex();
                     }
                     catch (System.Exception ex)
                     {
