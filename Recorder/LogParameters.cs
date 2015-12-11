@@ -17,12 +17,17 @@ namespace LXR.Recorder
         // Maximum size of each log file
         int _maxLogSize;
 
-        //// Maximum number of files to keep
-        //int _maxFileNums;
+        // Read only Maximum number of files to keep
+        readonly int _maxFileNums;
 
         // Minimum number of files to keep, even if old
         // need this parameter to prevent we delete all logs
         int _minFileNums;
+
+        // Maximum amount of space in MB() all log files should take up to
+        // = bytes * 1024 => kb * 1024 => mb
+        int _maxTotalSize;
+        
         
 
         public System.String LogsDirectory
@@ -43,16 +48,21 @@ namespace LXR.Recorder
             set { _maxLogSize = value; }
         }
 
-        //public int MaxFileNums
-        //{
-        //    get { return _maxFileNums; }
-        //    set { _maxFileNums = value; }
-        //}
+        public int MaxFileNums
+        {
+            get { return _maxTotalSize/_maxLogSize; }
+        }
         
         public int MinFileNums
         {
             get { return _minFileNums; }
             set { _minFileNums = value; }
+        }
+
+        public int MaxTotalSize
+        {
+            get { return _maxTotalSize; }
+            set { _maxTotalSize = value; }
         }
     }
 
@@ -65,7 +75,8 @@ namespace LXR.Recorder
         {
             MinFileNums = 2;
             MaxSaveDays = 10;
-            MaxLogSize = 1000 * 1024;
+            MaxLogSize = 1024 * 1024; // default to 1m
+            MaxTotalSize = 10 * 1024 * 1024; // default to 10m => upto 10 files
         }
     }
 }

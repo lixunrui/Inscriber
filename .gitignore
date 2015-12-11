@@ -1,0 +1,13 @@
+Recorder/obj/Debug/TemporaryGeneratedFile_036C0B5B-1481-4323-8D20-8F5ADCB23D92.cs
+*.dll
+Recorder/obj/Debug/Recorder.pdb
+*.cache
+LogTester/obj/Debug/LogTester.exe
+LogTester/bin/Debug/LogTester.exe
+LogTester/bin/Debug/LogTester.pdb
+*.exe
+*/bin/*.config
+*.manifest
+LogTester/bin/Debug/Recorder.pdb
+*.pdb
+*.config

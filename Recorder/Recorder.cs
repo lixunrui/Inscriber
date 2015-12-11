@@ -14,6 +14,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Threading;
 using System.IO;
+using System.Reflection;
 
 namespace LXR.Recorder
 {
@@ -32,6 +33,7 @@ namespace LXR.Recorder
             Normal,
         }
 
+#region Properties
         // locker: protecting thread safe
         Mutex locker = new Mutex(false);
 
@@ -48,7 +50,9 @@ namespace LXR.Recorder
 
         // flags
         Boolean _logFileOpened;
+#endregion
 
+#region Constructions & Deconstructions
         public Recorder(String logBaseName, LogParameters logParams)
         {
             Init(logBaseName, logParams);
@@ -57,8 +61,9 @@ namespace LXR.Recorder
         {
             this.Dispose();
         }
+#endregion
 
-
+#region Support Functions
         void Init(String baseName, LogParameters logParams)
         {
             _logBaseName = baseName;
@@ -68,71 +73,13 @@ namespace LXR.Recorder
         }
 
         /// <summary>
-        /// Write normal message line to log file, without any timestamps in front
+        /// Check if the directory exists, otherwise we will create the directory
         /// </summary>
-        /// <param name="message"></param>
-        /// <param name="parameters"></param>
-        void LogPlain(String message, params object[] parameters)
+        void CheckDirectoryExists()
         {
-            try
+            if (!Directory.Exists(_params.LogsDirectory))
             {
-                if (parameters.Length == 0)
-                {
-                    Log(LogLevel.Normal, message, false);
-                }
-                else
-                {
-                    Log(LogLevel.Normal, String.Format(message, parameters), false);
-                }
-            }
-            catch (System.Exception ex)
-            {
-                LogExceptions(ex);
-            }
-        }
-
-        public void TestLogException(Exception e)
-        {
-            LogExceptions(e);
-        }
-
-        public void Log(LogLevel level, String message, bool withTime)
-        {
-            if (level >= _currentLogLevel) // current level is Normal
-            {
-                locker.WaitOne();
-                try
-                {
-                    OpenFile();
-
-                    if (withTime)
-                    {
-                        _fileWriter.WriteLine(String.Format("{0} {1}", DateTime.Now.ToString("HH:mm:ss.fff"), message));
-                    }
-                    else
-                    {
-                        _fileWriter.WriteLine(message);
-                    }
-
-                    // in here we always Flush the content out, will change later
-#region TODO: change the flush
-
-#endregion
-                    _fileWriter.Flush();
-
-                }
-                catch (FileNotFoundException)
-                {
-                    CloseFile();
-                    throw;
-                }
-                catch (IOException)
-                {
-                    CloseFile();
-                    throw;
-                }
-
-                locker.ReleaseMutex();
+                Directory.CreateDirectory(_params.LogsDirectory);
             }
         }
 
@@ -192,9 +139,331 @@ namespace LXR.Recorder
             }
             catch (System.Exception)
             {
-            	
+
             }
             _logFileOpened = false;
+        }
+
+        /// <summary>
+        /// Archive current log file and delete old logs
+        /// Note: If current log greater than max log size
+        /// </summary>
+        void ArchiveFiles()
+        {
+            bool differentDay = File.GetLastWriteTime(_logFilePath).Day != DateTime.Now.Day;
+
+            if (_fileWriter.BaseStream.Length > _params.MaxLogSize)
+            {
+                string dateName = File.GetLastWriteTime(_logFilePath).ToString("yyyyMMdd_HHmm");
+
+                WriteLogCompleteMessage();
+
+                CloseFile();
+
+                int sequence = -1;
+                string archiveFileName;
+
+                do 
+                {
+                    sequence++;
+                    archiveFileName = Path.Combine(_params.LogsDirectory, string.Format("{0}_{1}_{2}.log", _logBaseName, dateName, sequence.ToString()));
+                } while (File.Exists(archiveFileName));
+
+                // rename the current log file
+                File.Move(_logFilePath, archiveFileName);
+
+                DeleteOldFiles();
+
+                OpenFile();
+
+                LogDateTimeMarker();
+
+                LogPlain("Log continues from " + Path.GetFileName(archiveFileName));
+            }
+            else if (differentDay)
+            {
+                LogDateTimeMarker();
+            }
+        }
+
+        /// <summary>
+        /// Delete old archive files of same base name as 
+        /// </summary>
+        void DeleteOldFiles()
+        {
+            // get all logs that share the same base name
+            string[] dirList = Directory.GetFiles(_params.LogsDirectory, _logBaseName + "*_*_*.log");
+
+            if (dirList.Length <= _params.MinFileNums) return;
+
+            SortedList<DateTime, string> sortedFileListByDate = new SortedList<DateTime, string>(new Comparer());
+
+            DateTime oldestDate = DateTime.Now.AddDays(-_params.MaxSaveDays);
+
+            foreach (string fileName in dirList)
+            {
+                // A file name should be like: 
+                // XXXName_Date_Time_sequence.log
+                // Date:        yyyyMMdd
+                // Time:        HHmm
+                // Sequence:    #.log
+                string[] fileParts = fileName.Split('_');
+                if (fileParts.Length != 4) continue;
+
+                if (fileParts[1].Length != 8 ||
+                    fileParts[2].Length != 4 ||
+                    fileParts[3].Length < 5) continue;
+
+                DateTime fileTime = File.GetLastWriteTime(fileName);
+
+                try
+                {
+                    // in case if there is any duplicate time 
+                    sortedFileListByDate.Add(fileTime, fileName);
+                }
+                catch (System.Exception ex)
+                {
+                    LogExceptions(ex);
+                }
+            } // end foreach
+
+
+            foreach (KeyValuePair<DateTime, string> kv in sortedFileListByDate)
+            {
+                if (kv.Key < oldestDate )
+                {
+                    try
+                    {
+                        File.Delete(kv.Value);
+                    }
+                    catch (System.Exception ex)
+                    {
+                        LogExceptions(ex);
+                    }
+                }
+            }
+
+            if (sortedFileListByDate.Count > _params.MaxFileNums)
+            {
+                for (int index = _params.MaxFileNums - 1; index < sortedFileListByDate.Count; index++ )
+                {
+                    try
+                    {
+                        File.Delete(sortedFileListByDate.Values[index]);	
+                    }
+                    catch (System.Exception ex)
+                    {
+                        LogExceptions(ex);
+                    }
+                    
+                }
+            }
+
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        void WriteLogCompleteMessage()
+        {
+            try
+            {
+                LogDateTimeMarker();
+                _fileWriter.WriteLine("Log archived");
+            }
+            catch (System.Exception ex)
+            {
+                LogExceptions(ex);
+            }
+        }
+
+#endregion
+
+#region Write Functions
+        /// <summary>
+        /// Log a start message in log files using the assembly reference
+        /// </summary>
+        /// <param name="assem"></param>
+        void LogStart(System.Reflection.Assembly assem)
+        {
+            try
+            {
+                AssemblyName assembly = assem.GetName();
+
+                String message = String.Format("Starting : {0} Version {1}", assembly.Name, assembly.Version);
+
+                Log(LogLevel.Normal, message, true);
+            }
+            catch (System.Exception ex)
+            {
+                LogExceptions(ex);
+            }
+        }
+
+        /// <summary>
+        /// Write normal message line to log file, without any timestamps in front
+        /// </summary>
+        /// <param name="message"></param>
+        /// <param name="parameters"></param>
+        void LogPlain(String message, params object[] parameters)
+        {
+            try
+            {
+                if (parameters.Length == 0)
+                {
+                    Log(LogLevel.Normal, message, false);
+                }
+                else
+                {
+                    Log(LogLevel.Normal, String.Format(message, parameters), false);
+                }
+            }
+            catch (System.Exception ex)
+            {
+                LogExceptions(ex);
+            }
+        }
+
+        void LogDateTimeMarker()
+        {
+            try
+            {
+                _fileWriter.WriteLine("*** Time: "+DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"));
+                _fileWriter.Flush();
+            }
+            catch (System.Exception ex)
+            {
+                LogExceptions(ex);
+            }
+        }
+
+        /// <summary>
+        /// Log message into to the log file    
+        /// </summary>
+        /// <param name="level">Log level</param>
+        /// <param name="message"></param>
+        /// <param name="withTime">True: Log the message with time stamp</param>
+        private void Log(LogLevel level, String message, bool withTime)
+        {
+            if (level >= _currentLogLevel) // current level is Normal
+            {
+                locker.WaitOne();
+                try
+                {
+                    OpenFile();
+
+                    ArchiveFiles();
+
+                    if (withTime)
+                    {
+                        _fileWriter.WriteLine(String.Format("{0} {1}", DateTime.Now.ToString("HH:mm:ss.fff"), message));
+                    }
+                    else
+                    {
+                        _fileWriter.WriteLine(message);
+                    }
+
+                    // in here we always Flush the content out, will change later
+                    #region TODO: change the flush
+
+                    #endregion
+                    _fileWriter.Flush();
+
+                }
+                catch (FileNotFoundException)
+                {
+                    CloseFile();
+                    throw;
+                }
+                catch (IOException)
+                {
+                    CloseFile();
+                    throw;
+                }
+
+                locker.ReleaseMutex();
+            }
+        }
+
+#region Public Log functions
+        /// <summary>
+        /// Log debug message into log files
+        /// </summary>
+        /// <param name="module">Name of module logging</param>
+        /// <param name="message"></param>
+        /// <param name="parameters"></param>
+        public void LogDebug(string module, string message, params object[] parameters)
+        {
+            try
+            {
+                if (parameters.Length == 0)
+                {
+                    Log(LogLevel.Debug, module + " : " + message, true);
+                }
+                else
+                    Log(LogLevel.Debug, module + " : " + string.Format(message, parameters), true);
+            }
+            catch (System.Exception ex)
+            {
+                LogExceptions(ex);
+            }
+        }
+
+        /// <summary>
+        /// Log Normal message into log files
+        /// </summary>
+        /// <param name="module">Name of module logging</param>
+        /// <param name="message"></param>
+        /// <param name="parameters"></param>
+        public void LogNormal(string module, string message, params object[] parameters)
+        {
+            try
+            {
+                if (parameters.Length == 0)
+                {
+                    Log(LogLevel.Normal, module + " : " + message, true);
+                }
+                else
+                    Log(LogLevel.Normal, module + " : " + string.Format(message, parameters), true);
+            }
+            catch (System.Exception ex)
+            {
+                LogExceptions(ex);
+            }
+        }
+
+        /// <summary>
+        /// Log message line to log files
+        /// </summary>
+        /// <param name="level"></param>
+        /// <param name="format"></param>
+        /// <param name="parameters"></param>
+        public void LogLine(LogLevel level, string format, params object[] parameters)
+        {
+            try
+            {
+                if (parameters.Length == 0)
+                {
+                    Log(level, format, true);
+                }
+                else
+                    Log(level, string.Format(format, parameters), true);
+            }
+            catch (System.Exception ex)
+            {
+                LogExceptions(ex);
+            }
+        }
+#endregion
+
+#endregion
+
+        #region Exception Handler
+        // Public function to test exception 
+        // HACK: remove this later
+        public void TestLogException(Exception e)
+        {
+            LogExceptions(e);
         }
 
         /// <summary>
@@ -236,26 +505,17 @@ namespace LXR.Recorder
                 exceptionStream.Flush();
 
                 exceptionStream.Close();
+
                 fs.Close();
             }
             catch (System.Exception)
             {
-            	// ignore 
+                // ignore 
             }
         }
+#endregion
 
-        /// <summary>
-        /// Check if the directory exists, otherwise we will create the directory
-        /// </summary>
-        void CheckDirectoryExists()
-        {
-            if (! Directory.Exists(_params.LogsDirectory))
-            {
-                Directory.CreateDirectory(_params.LogsDirectory);
-            }
-        }
-
-        #region TODO: IDisposable Members
+#region TODO: IDisposable Members
 
         public void Dispose()
         {
@@ -267,6 +527,6 @@ namespace LXR.Recorder
             }
         }
 
-        #endregion
+#endregion
     }
 }

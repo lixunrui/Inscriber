@@ -39,6 +39,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Comparer.cs" />
     <Compile Include="Exception.cs" />
     <Compile Include="LogParameters.cs" />
     <Compile Include="Recorder.cs" />

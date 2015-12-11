@@ -127,7 +127,7 @@ namespace LogTester
                 
                 longNumber++;
 
-                _log.Log(LXR.Recorder.Recorder.LogLevel.Normal, longNumber.ToString(), true);
+                _log.LogNormal(System.Reflection.Assembly.GetCallingAssembly().ManifestModule.ToString(), longNumber.ToString());
 
             } while (!_StopTesting);
 
