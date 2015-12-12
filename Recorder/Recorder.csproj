@@ -41,6 +41,7 @@
   <ItemGroup>
     <Compile Include="Comparer.cs" />
     <Compile Include="Exception.cs" />
+    <Compile Include="LazyWriteThread.cs" />
     <Compile Include="LogParameters.cs" />
     <Compile Include="Recorder.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

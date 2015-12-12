@@ -40,6 +40,11 @@ namespace LXR.Recorder
         // Log file settings
         FileStream _fileStream;
         StreamWriter _fileWriter;
+
+        internal System.IO.StreamWriter FileWriter
+        {
+            get { return _fileWriter; }
+        }
         String _logBaseName;
         String _logFilePath;
 
@@ -50,6 +55,10 @@ namespace LXR.Recorder
 
         // flags
         Boolean _logFileOpened;
+
+        // lazy flush
+        const int _lazyWriteTimer = 5;
+
 #endregion
 
 #region Constructions & Deconstructions
@@ -474,7 +483,7 @@ namespace LXR.Recorder
         /// Write exception details to another exception file named as: Recorder_Exception.log
         /// </summary>
         /// <param name="e"></param>
-        void LogExceptions(Exception e)
+        internal void LogExceptions(Exception e)
         {
             try
             {
