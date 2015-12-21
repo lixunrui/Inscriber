@@ -31,12 +31,14 @@ namespace LXR.Recorder
         /// </summary>
         /// <param name="recorder">a weak reference to the recorder</param>
         /// <param name="startWriteHandler"></param>
-        /// <param name="flushTimer"></param>
+        /// <param name="flushTimer">In Seconds</param>
         public void Start(Recorder recorder, EventWaitHandle startWriteHandler, int flushTimer)
         {
             _Recorder = new WeakReference(recorder);
             handles[0] = startWriteHandler;
-            _flushTimer = flushTimer;
+            handles[1] = endEvent;
+
+            _flushTimer = flushTimer * 1000;
 
             _lazyerRunning = true;
 
@@ -84,7 +86,7 @@ namespace LXR.Recorder
             }
         }
 
-        void EndLazyWriter()
+        internal void EndLazyWriter()
         {
             try
             {

@@ -59,6 +59,49 @@ namespace LXR.Recorder
         // lazy flush
         const int _lazyWriteTimer = 5;
 
+        LazyWriteThread _lazyWriteThread = null;
+        EventWaitHandle _lazyTrigger;
+        
+        Boolean _autoFlush = true;
+
+        public System.Boolean AutoFlush
+        {
+            get { return _autoFlush; }
+            set { _autoFlush = value; }
+        }
+
+        public Boolean LazyWrite
+        {
+            get
+            {
+                return _lazyWriteThread != null;
+            }
+            set
+            {
+                switch (value)
+                {
+                    case true: // switch on
+                        _autoFlush = false;
+                        if (_lazyWriteThread == null)
+                        {
+                            _lazyTrigger = new EventWaitHandle(false, EventResetMode.AutoReset);
+                            _lazyWriteThread = new LazyWriteThread();
+                            _lazyWriteThread.Start(this, _lazyTrigger, _lazyWriteTimer);
+                        }
+                        break;
+                    case false:
+                        _autoFlush = true;
+                        if (_lazyWriteThread != null)
+                        {
+                            _lazyWriteThread.EndLazyWriter();
+                            _lazyWriteThread = null;
+                            _lazyTrigger = null;
+                        }
+                        break;
+                }
+            }
+        }
+
 #endregion
 
 #region Constructions & Deconstructions
@@ -78,6 +121,7 @@ namespace LXR.Recorder
             _logBaseName = baseName;
             _params = logParams;
             _logFileOpened = false;
+            LazyWrite = false;
             LogPlain("-------------------------------");
         }
 
@@ -377,11 +421,17 @@ namespace LXR.Recorder
                     }
 
                     // in here we always Flush the content out, will change later
-                    #region TODO: change the flush
-
-                    #endregion
-                    _fileWriter.Flush();
-
+                    if (_autoFlush)
+                    {
+                        _fileWriter.Flush();
+                    }
+                    else
+                    {
+                        if (_lazyTrigger != null)
+                        {
+                            _lazyTrigger.Set();
+                        }
+                    }
                 }
                 catch (FileNotFoundException)
                 {
